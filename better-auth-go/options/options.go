@@ -18,6 +18,8 @@ type BetterAuthOptions struct {
 	Adapter db.Adapter
 	// EmailAndPassword configuration.
 	EmailAndPassword *EmailAndPasswordOptions
+	// Plugins list of plugins.
+	Plugins []Plugin
 }
 
 // EmailAndPasswordOptions holds the configuration for email and password authentication.

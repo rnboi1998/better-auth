@@ -6,6 +6,7 @@ import (
 
 	betterauth "github.com/better-auth/better-auth-go"
 	"github.com/better-auth/better-auth-go/options"
+	"github.com/better-auth/better-auth-go/plugins/logger"
 )
 
 func main() {
@@ -14,6 +15,9 @@ func main() {
 		AppName: "My Demo App",
 		BaseURL: "http://localhost:8080",
 		BasePath: "/api/auth",
+		Plugins: []options.Plugin{
+			logger.NewLoggerPlugin(),
+		},
 	})
 
 	// Mount the handler
@@ -34,6 +38,7 @@ func main() {
 	log.Println("  POST /api/auth/sign-up/email { \"email\": \"test@example.com\", \"password\": \"password123\", \"name\": \"Test User\" }")
 	log.Println("  POST /api/auth/sign-in/email { \"email\": \"test@example.com\", \"password\": \"password123\" }")
 	log.Println("  GET  /api/auth/get-session")
+	log.Println("  GET  /api/auth/logger/test")
 
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal(err)
