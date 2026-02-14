@@ -3,6 +3,9 @@ defmodule BetterAuth.Web.Controller do
   import Plug.Conn
 
   alias BetterAuth
+  alias BetterAuth.Plugins.{Username, TwoFactor, Organization}
+
+  # --- Core ---
 
   def sign_in_email(conn, %{"email" => email, "password" => password}) do
     case BetterAuth.sign_in_email(email, password) do
@@ -54,6 +57,113 @@ defmodule BetterAuth.Web.Controller do
         json(conn, nil)
     end
   end
+
+  # --- Plugin: Username ---
+
+  def sign_in_username(conn, %{"username" => username, "password" => password}) do
+    case Username.sign_in_username(username, password) do
+      {:ok, user, session} ->
+        conn
+        |> put_session_cookie(session.token)
+        |> json(%{user: user, token: session.token})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: format_error(reason)})
+    end
+  end
+
+  def check_username_availability(conn, %{"username" => username}) do
+    case Username.check_availability(username) do
+      {:ok, available} -> json(conn, %{available: available})
+      {:error, reason} ->
+        conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+    end
+  end
+
+  # --- Plugin: Two Factor ---
+
+  def enable_two_factor(conn, %{"password" => password}) do
+    user = conn.assigns[:current_user]
+    if user do
+      case TwoFactor.enable(user, password) do
+        {:ok, data} -> json(conn, data)
+        {:error, reason} ->
+           conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+      end
+    else
+      conn |> put_status(:unauthorized) |> json(%{error: "Unauthorized"})
+    end
+  end
+
+  def disable_two_factor(conn, %{"password" => password}) do
+    user = conn.assigns[:current_user]
+    if user do
+       case TwoFactor.disable(user, password) do
+         {:ok, _} -> json(conn, %{status: true})
+         {:error, reason} ->
+            conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+       end
+    else
+       conn |> put_status(:unauthorized) |> json(%{error: "Unauthorized"})
+    end
+  end
+
+  def verify_two_factor(conn, %{"code" => code}) do
+     # This assumes user is partially authenticated or we pass a temp token
+     # For now, simplistic implementation assuming logged in user verifying 2FA
+     user = conn.assigns[:current_user]
+     if user do
+       case TwoFactor.verify_totp(user, code) do
+         {:ok, true} -> json(conn, %{status: true})
+         _ -> conn |> put_status(:unauthorized) |> json(%{error: "Invalid code"})
+       end
+     else
+       conn |> put_status(:unauthorized) |> json(%{error: "Unauthorized"})
+     end
+  end
+
+  # --- Plugin: Organization ---
+
+  def create_organization(conn, %{"name" => name, "slug" => slug}) do
+    user = conn.assigns[:current_user]
+    if user do
+      case Organization.create(user.id, name, slug) do
+        {:ok, org} -> json(conn, org)
+        {:error, reason} ->
+           conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+      end
+    else
+      conn |> put_status(:unauthorized) |> json(%{error: "Unauthorized"})
+    end
+  end
+
+  def list_organizations(conn, _params) do
+    user = conn.assigns[:current_user]
+    if user do
+      {:ok, orgs} = Organization.list_user_organizations(user.id)
+      json(conn, orgs)
+    else
+      conn |> put_status(:unauthorized) |> json(%{error: "Unauthorized"})
+    end
+  end
+
+  def invite_member(conn, %{"organizationId" => org_id, "email" => email, "role" => role}) do
+    user = conn.assigns[:current_user]
+    if user do
+       case Organization.invite_member(user.id, org_id, email, role) do
+         {:ok, invitation} -> json(conn, invitation)
+         {:error, reason} ->
+            conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+       end
+    else
+       conn |> put_status(:unauthorized) |> json(%{error: "Unauthorized"})
+    end
+  end
+
+
+  # --- Helpers ---
 
   defp put_session_cookie(conn, token) do
     put_resp_cookie(conn, "better_auth_session_token", token, http_only: true, max_age: 30 * 24 * 3600)

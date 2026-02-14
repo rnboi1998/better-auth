@@ -39,11 +39,16 @@ defmodule Mix.Tasks.BetterAuth.Gen.Migration do
           add :email, :string, null: false
           add :email_verified, :boolean, default: false, null: false
           add :image, :string
+          # Plugin fields
+          add :username, :string
+          add :display_username, :string
+          add :two_factor_enabled, :boolean, default: false
 
           timestamps()
         end
 
         create unique_index(:users, [:email])
+        create unique_index(:users, [:username])
 
         create table(:sessions, primary_key: false) do
           add :id, :binary_id, primary_key: true
@@ -79,6 +84,48 @@ defmodule Mix.Tasks.BetterAuth.Gen.Migration do
           add :identifier, :string, null: false
           add :value, :string, null: false
           add :expires_at, :utc_datetime, null: false
+
+          timestamps()
+        end
+
+        create table(:two_factors, primary_key: false) do
+          add :id, :binary_id, primary_key: true
+          add :secret, :string, null: false
+          add :backup_codes, :text, null: false
+          add :user_id, references(:users, on_delete: :delete_all, type: :binary_id), null: false
+
+          timestamps()
+        end
+
+        create table(:organizations, primary_key: false) do
+          add :id, :binary_id, primary_key: true
+          add :name, :string, null: false
+          add :slug, :string, null: false
+          add :logo, :string
+          add :metadata, :map
+
+          timestamps()
+        end
+        create unique_index(:organizations, [:slug])
+
+        create table(:members, primary_key: false) do
+          add :id, :binary_id, primary_key: true
+          add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+          add :user_id, references(:users, on_delete: :delete_all, type: :binary_id), null: false
+          add :role, :string, null: false
+
+          timestamps()
+        end
+        create unique_index(:members, [:organization_id, :user_id])
+
+        create table(:invitations, primary_key: false) do
+          add :id, :binary_id, primary_key: true
+          add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+          add :email, :string, null: false
+          add :role, :string, null: false
+          add :status, :string, null: false, default: "pending"
+          add :expires_at, :utc_datetime, null: false
+          add :inviter_id, references(:users, on_delete: :delete_all, type: :binary_id), null: false
 
           timestamps()
         end

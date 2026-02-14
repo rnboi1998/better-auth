@@ -1,6 +1,6 @@
 defmodule BetterAuth.Core.User do
   alias BetterAuth.{User, Account}
-  alias BetterAuth.Core.Password
+  alias BetterAuth.Core.{Session, Password}
 
   @dummy_hash "$argon2id$v=19$m=65536,t=2,p=1$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWJTmqpvBSlBpxvF+0sbMg"
 
@@ -20,7 +20,12 @@ defmodule BetterAuth.Core.User do
           password: hashed_password
         }
 
-        adapter().create_user_with_account(user_attrs, account_attrs)
+        case adapter().create_user_with_account(user_attrs, account_attrs) do
+          {:ok, user} ->
+             {:ok, session} = Session.create(user.id)
+             {:ok, user, session}
+          error -> error
+        end
 
       {:ok, _user} ->
         {:error, :email_already_exists}
@@ -41,7 +46,8 @@ defmodule BetterAuth.Core.User do
         # Find credential account
         account = Enum.find(user.accounts, fn a -> a.provider_id == "credential" end)
         if account && Password.verify(password, account.password) do
-          {:ok, user}
+          {:ok, session} = Session.create(user.id)
+          {:ok, user, session}
         else
           {:error, :invalid_credentials}
         end

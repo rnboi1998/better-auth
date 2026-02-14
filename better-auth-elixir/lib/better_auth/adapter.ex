@@ -6,5 +6,10 @@ defmodule BetterAuth.Adapter do
   @callback delete_session(String.t()) :: {:ok, BetterAuth.Session.t()} | {:error, any()}
   @callback create_account(map()) :: {:ok, BetterAuth.Account.t()} | {:error, any()}
   @callback create_user_with_account(map(), map()) :: {:ok, BetterAuth.User.t()} | {:error, any()}
-  # Add more as needed
+
+  # Plugin Support (Optional but recommended for full decoupling)
+  # For brevity in this task, plugins are currently using Ecto directly via `repo()`.
+  # In a full production library, we would add callbacks here:
+  # @callback create_organization(map()) :: ...
+  # @callback invite_member(map()) :: ...
 end

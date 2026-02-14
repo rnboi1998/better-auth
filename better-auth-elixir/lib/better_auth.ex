@@ -2,29 +2,11 @@ defmodule BetterAuth do
   @moduledoc """
   BetterAuth public API.
   """
-  alias BetterAuth.Core.{User, Session, Password}
+  alias BetterAuth.Core.{User, Session}
 
-  def sign_in_email(email, password) do
-    case User.authenticate(email, password) do
-      {:ok, user} ->
-        {:ok, session} = Session.create(user.id)
-        {:ok, user, session}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  def sign_up_email(email, password, name) do
-    case User.create(email, password, name) do
-      {:ok, user} ->
-        {:ok, session} = Session.create(user.id)
-        {:ok, user, session}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
+  # Delegate to Core
+  defdelegate sign_in_email(email, password), to: BetterAuth.Core.User, as: :authenticate
+  defdelegate sign_up_email(email, password, name), to: BetterAuth.Core.User, as: :create
 
   def sign_out(token) do
     Session.delete(token)
@@ -33,4 +15,9 @@ defmodule BetterAuth do
   def get_session(token) do
     Session.get(token)
   end
+
+  # Plugin delegations (optional, or accessed directly via Plugins modules)
+  # But good practice to expose them here if we want a unified API surface
+
+  defdelegate sign_in_username(username, password), to: BetterAuth.Plugins.Username
 end
