@@ -25,6 +25,18 @@ defmodule BetterAuth.Web.Router do
         post "/organization/create", BetterAuth.Web.Controller, :create_organization
         get "/organization/list", BetterAuth.Web.Controller, :list_organizations
         post "/organization/invite", BetterAuth.Web.Controller, :invite_member
+
+        # Plugin: SSO (Enterprise OIDC)
+        post "/sso/register", BetterAuth.Web.Controller, :register_sso_provider
+        post "/sign-in/sso", BetterAuth.Web.Controller, :sign_in_sso
+        get "/sso/callback/:provider_id", BetterAuth.Web.Controller, :callback_sso
+
+        # Plugin: OIDC Provider (IdP)
+        get "/.well-known/openid-configuration", BetterAuth.Web.Controller, :oidc_discovery
+        get "/jwks.json", BetterAuth.Web.Controller, :oidc_jwks
+        get "/oauth2/authorize", BetterAuth.Web.Controller, :oidc_authorize
+        post "/oauth2/token", BetterAuth.Web.Controller, :oidc_token
+        get "/oauth2/userinfo", BetterAuth.Web.Controller, :oidc_userinfo
       end
     end
   end

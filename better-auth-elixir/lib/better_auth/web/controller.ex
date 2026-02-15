@@ -3,7 +3,11 @@ defmodule BetterAuth.Web.Controller do
   import Plug.Conn
 
   alias BetterAuth
-  alias BetterAuth.Plugins.{Username, TwoFactor, Organization}
+  alias BetterAuth.Plugins.{Username, TwoFactor, Organization, SSO, OIDCProvider}
+
+  defp base_url do
+    Application.get_env(:better_auth, :base_url) || "http://localhost:4000/api/auth"
+  end
 
   # --- Core ---
 
@@ -162,6 +166,82 @@ defmodule BetterAuth.Web.Controller do
     end
   end
 
+  # --- Plugin: SSO (Client) ---
+
+  def register_sso_provider(conn, params) do
+    case SSO.register_provider(params) do
+      {:ok, provider} -> json(conn, provider)
+      {:error, reason} ->
+         conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+    end
+  end
+
+  def sign_in_sso(conn, %{"providerId" => provider_id, "redirectUri" => redirect_uri}) do
+    case SSO.sign_in_sso(provider_id, redirect_uri) do
+      {:ok, url, _state} -> json(conn, %{url: url})
+      {:error, reason} ->
+         conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+    end
+  end
+
+  def callback_sso(conn, %{"provider_id" => provider_id, "code" => code}) do
+     # Should ideally verify state too
+     # redirect_uri must match what was sent
+     redirect_uri = "#{base_url()}/sso/callback/#{provider_id}"
+     case SSO.callback_sso(provider_id, code, redirect_uri) do
+       {:ok, user, session} ->
+          conn
+          |> put_session_cookie(session.token)
+          |> json(%{user: user, token: session.token})
+       {:error, reason} ->
+          conn |> put_status(:unauthorized) |> json(%{error: format_error(reason)})
+     end
+  end
+
+  # --- Plugin: OIDC Provider (Server) ---
+
+  def oidc_discovery(conn, _params) do
+    json(conn, OIDCProvider.openid_configuration())
+  end
+
+  def oidc_jwks(conn, _params) do
+    json(conn, OIDCProvider.jwks())
+  end
+
+  def oidc_authorize(conn, %{"client_id" => client_id, "redirect_uri" => redirect_uri, "response_type" => "code", "scope" => scope, "state" => state}) do
+    user = conn.assigns[:current_user]
+    if user do
+       case OIDCProvider.authorize(client_id, redirect_uri, "code", scope, state, user.id) do
+         {:ok, url} -> redirect(conn, external: url)
+         {:error, reason} ->
+            conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+       end
+    else
+       # If not logged in, redirect to login page with return_to
+       # For API only, we return 401
+       conn |> put_status(:unauthorized) |> json(%{error: "Login required"})
+    end
+  end
+
+  def oidc_token(conn, %{"grant_type" => "authorization_code", "code" => code, "redirect_uri" => redirect_uri, "client_id" => client_id, "client_secret" => client_secret}) do
+    case OIDCProvider.token("authorization_code", code, redirect_uri, client_id, client_secret) do
+      {:ok, token_response} -> json(conn, token_response)
+      {:error, reason} ->
+         conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+    end
+  end
+
+  def oidc_userinfo(conn, _params) do
+     # Expect Bearer token
+     case get_req_header(conn, "authorization") do
+       ["Bearer " <> token] ->
+          case OIDCProvider.userinfo(token) do
+            {:ok, info} -> json(conn, info)
+            {:error, reason} -> conn |> put_status(:unauthorized) |> json(%{error: format_error(reason)})
+          end
+       _ -> conn |> put_status(:unauthorized) |> json(%{error: "Missing token"})
+     end
+  end
 
   # --- Helpers ---
 

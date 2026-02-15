@@ -129,6 +129,63 @@ defmodule Mix.Tasks.BetterAuth.Gen.Migration do
 
           timestamps()
         end
+
+        # SSO Plugin
+        create table(:sso_providers, primary_key: false) do
+          add :id, :binary_id, primary_key: true
+          add :provider_id, :string, null: false
+          add :issuer, :string, null: false
+          add :domain, :string, null: false
+          add :oidc_config, :map
+          add :saml_config, :map
+          add :user_id, references(:users, on_delete: :delete_all, type: :binary_id) # Optional
+
+          timestamps()
+        end
+        create unique_index(:sso_providers, [:provider_id])
+
+        # OIDC Provider Plugin
+        create table(:oauth_applications, primary_key: false) do
+          add :id, :binary_id, primary_key: true
+          add :client_id, :string, null: false
+          add :client_secret, :string
+          add :name, :string, null: false
+          add :icon, :string
+          add :metadata, :text
+          add :redirect_urls, :text, null: false
+          add :type, :string, null: false
+          add :disabled, :boolean, default: false
+          add :user_id, references(:users, on_delete: :delete_all, type: :binary_id)
+
+          timestamps()
+        end
+        create unique_index(:oauth_applications, [:client_id])
+
+        create table(:oauth_access_tokens, primary_key: false) do
+          add :id, :binary_id, primary_key: true
+          add :access_token, :string, null: false
+          add :refresh_token, :string
+          add :expires_at, :utc_datetime
+          add :refresh_token_expires_at, :utc_datetime
+          add :scopes, :string
+          add :client_id, :string, null: false
+          add :user_id, references(:users, on_delete: :delete_all, type: :binary_id)
+
+          timestamps()
+        end
+        create unique_index(:oauth_access_tokens, [:access_token])
+        create unique_index(:oauth_access_tokens, [:refresh_token])
+        create index(:oauth_access_tokens, [:client_id])
+
+        create table(:oauth_consents, primary_key: false) do
+          add :id, :binary_id, primary_key: true
+          add :client_id, :string, null: false
+          add :user_id, references(:users, on_delete: :delete_all, type: :binary_id), null: false
+          add :scopes, :string
+          add :consent_given, :boolean, default: false
+
+          timestamps()
+        end
       end
     end
     """

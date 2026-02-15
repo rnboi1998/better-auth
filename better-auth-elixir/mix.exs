@@ -27,7 +27,10 @@ defmodule BetterAuth.MixProject do
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
       {:argon2_elixir, "~> 3.0"},
-      {:nimble_totp, "~> 1.0"}
+      {:nimble_totp, "~> 1.0"},
+      {:joken, "~> 2.6"},
+      {:req, "~> 0.5"},
+      {:jose, "~> 1.11"}
     ]
   end
 end
