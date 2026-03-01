@@ -1,0 +1,6 @@
+2026/02/14 19:24:12 Server started on http://localhost:8080
+2026/02/14 19:24:12 Try:
+2026/02/14 19:24:12   POST /api/auth/sign-up/email { "email": "test@example.com", "password": "password123", "name": "Test User" }
+2026/02/14 19:24:12   POST /api/auth/sign-in/email { "email": "test@example.com", "password": "password123" }
+2026/02/14 19:24:12   GET  /api/auth/get-session
+2026/02/14 19:24:12   GET  /api/auth/logger/test
